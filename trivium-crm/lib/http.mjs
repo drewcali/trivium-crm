@@ -1,8 +1,9 @@
 import zlib from 'node:zlib';
-import { sessionUser, accounts, saveAccounts, hashPin } from './auth.mjs';
+import { sessionUser, accounts, saveAccounts, hashPin, pinOk } from './auth.mjs';
 import { SOURCE, env } from './config.mjs';
 import { client } from './airtable.mjs';
 import { normalize } from './model.mjs';
+import { store } from './store.mjs';
 
 export const json = (o, status = 200, headers = {}) =>
   new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers } });
@@ -34,12 +35,24 @@ export function handler(fn, { auth = 'user' } = {}) {
 }
 
 // First run: create the admin from ADMIN_PIN (production) or demo PINs (mock mode only).
+// After that, ADMIN_PIN stays authoritative: if the Netlify setting changes, the admin's
+// stored hash is updated on the next cold start (and old admin sessions end).
 let booted = false;
+const cleanPin = (v) => (v == null ? null : String(v).replace(/\D/g, '')) || null;
 async function bootstrap() {
-  if (booted) return; const list = await accounts();
-  if (list.length) { booted = true; return; }
+  if (booted) return;
   const mockMode = SOURCE() === 'mock';
-  const adminPin = env('ADMIN_PIN') || (mockMode ? '2468' : null);
+  const envPin = cleanPin(env('ADMIN_PIN'));
+  const list = await accounts();
+  if (list.length) {
+    const admin = list.find(a => a.id === 'admin');
+    if (admin && envPin && !pinOk(envPin, admin.pin)) {
+      admin.pin = hashPin(envPin); admin.pinVersion = (admin.pinVersion || 0) + 1; admin.active = true;
+      await A_save(list); await store('auth').del('lock:admin');
+    }
+    booted = true; return;
+  }
+  const adminPin = envPin || (mockMode ? '2468' : null);
   if (!adminPin) throw Object.assign(new Error('Set ADMIN_PIN in Netlify environment variables for first login'), { status: 503 });
   const out = [{ id: 'admin', name: env('ADMIN_NAME', 'Emily Wood'), role: 'admin', territory: 'All territories', pin: hashPin(adminPin), active: true }];
   if (mockMode) { // demo brokers, PINs 1001–1005 — mock mode only
@@ -48,3 +61,4 @@ async function bootstrap() {
   }
   await saveAccounts(out); booted = true;
 }
+const A_save = (list) => saveAccounts(list);

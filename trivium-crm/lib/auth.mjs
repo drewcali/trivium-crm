@@ -19,7 +19,7 @@ function secret() {
 
 export const hashPin = (pin, salt = crypto.randomBytes(16).toString('hex')) =>
   ({ salt, hash: crypto.scryptSync(String(pin), salt, 32).toString('hex') });
-const pinOk = (pin, rec) => rec?.hash && crypto.timingSafeEqual(Buffer.from(hashPin(pin, rec.salt).hash, 'hex'), Buffer.from(rec.hash, 'hex'));
+export const pinOk = (pin, rec) => rec?.hash && crypto.timingSafeEqual(Buffer.from(hashPin(pin, rec.salt).hash, 'hex'), Buffer.from(rec.hash, 'hex'));
 
 // accounts: [{ id, name, role: 'broker'|'admin', userRecId, territory, pin: {salt,hash}, active }]
 export async function accounts() { return (await A.get('accounts')) || []; }
