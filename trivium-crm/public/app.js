@@ -82,6 +82,7 @@ async function enterApp(user, source, offline = false) {
   $('#userAv').textContent = initials(user.name); $('#userName').textContent = user.name;
   $('#menuInfo').innerHTML = `${esc(user.name)}<br>${esc(user.territory || '')}<br>Data: ${source === 'mock' ? 'mock base (fictional)' : 'Airtable dev base'}`;
   await idb.set('lastUser', { user, source });
+  ensureMap();
   await loadTerritory(offline);
   setNet(); flushOutbox();
 }
@@ -195,14 +196,18 @@ function renderRows(force) {
 
 // ── map ──────────────────────────────────────────────────────
 let map, cluster, markers = [];
+// The base map shows immediately on sign-in (like AMP), even before or without territory data.
+function ensureMap() {
+  if (map) return;
+  map = L.map('map', { preferCanvas: true, zoomControl: true }).setView([40.85, -74.15], 9);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd', attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(map);
+  cluster = L.markerClusterGroup({ chunkedLoading: true, iconCreateFunction: (c) => { const n = c.getChildCount(); const d = n < 20 ? 30 : n < 100 ? 36 : n < 500 ? 44 : 52;
+    return L.divIcon({ html: `<div class="clu" style="width:${d}px;height:${d}px">${n}</div>`, className: '', iconSize: [d, d] }); }, maxClusterRadius: 48, disableClusteringAtZoom: 16, spiderfyOnMaxZoom: false, showCoverageOnHover: false });
+  map.addLayer(cluster);
+  setTimeout(() => map.invalidateSize(), 100);
+}
 function initMap() {
-  if (!map) {
-    map = L.map('map', { preferCanvas: true, zoomControl: true });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd', attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(map);
-    cluster = L.markerClusterGroup({ chunkedLoading: true, iconCreateFunction: (c) => { const n = c.getChildCount(); const d = n < 20 ? 30 : n < 100 ? 36 : n < 500 ? 44 : 52;
-      return L.divIcon({ html: `<div class="clu" style="width:${d}px;height:${d}px">${n}</div>`, className: '', iconSize: [d, d] }); }, maxClusterRadius: 48, disableClusteringAtZoom: 16, spiderfyOnMaxZoom: false, showCoverageOnHover: false });
-    map.addLayer(cluster);
-  }
+  ensureMap();
   const renderer = L.canvas({ padding: 0.3 });
   markers = S.D.props.map(p => {
     if (p.lat == null) return null;
