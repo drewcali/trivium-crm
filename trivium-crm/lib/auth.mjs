@@ -4,7 +4,7 @@
 //  • A session is an HMAC-signed, HttpOnly, Secure, SameSite=Strict cookie, 12h lifetime.
 //  • Every API call re-checks the session and the user's current status (removing a broker is instant).
 import crypto from 'node:crypto';
-import { env, RULES, SOURCE } from './config.mjs';
+import { env, RULES, SOURCE, onNetlify } from './config.mjs';
 import { store } from './store.mjs';
 
 const A = store('auth');
@@ -13,7 +13,7 @@ const COOKIE = 'tcrm_session';
 function secret() {
   const s = env('SESSION_SECRET');
   if (s) return s;
-  if (SOURCE() === 'mock' && !env('NETLIFY')) return 'local-dev-only-secret';
+  if (SOURCE() === 'mock' && !onNetlify()) return 'local-dev-only-secret';
   throw new Error('SESSION_SECRET is not set');
 }
 
@@ -48,7 +48,7 @@ function verify(token) {
   if (sig.length !== good.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(good))) return null;
   const o = JSON.parse(Buffer.from(p, 'base64url').toString()); return o.exp > Date.now() ? o : null;
 }
-const cookie = (val, maxAge) => `${COOKIE}=${val}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${env('NETLIFY') ? '; Secure' : ''}`;
+const cookie = (val, maxAge) => `${COOKIE}=${val}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${onNetlify() ? '; Secure' : ''}`;
 export const clearCookie = () => cookie('', 0);
 
 export async function sessionUser(req) {

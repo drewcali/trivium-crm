@@ -11,6 +11,9 @@ export const env = (k, d = undefined) => {
   return v === undefined || v === '' ? d : v;
 };
 
+// True inside Netlify's function runtime (NETLIFY env var exists only at build time).
+export const onNetlify = () => typeof Netlify !== 'undefined' || !!process.env.NETLIFY_BLOBS_CONTEXT || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+
 // Data source: "airtable" when AIRTABLE_TOKEN + AIRTABLE_BASE_ID are set, else built-in mock base.
 export const SOURCE = () => (env('AIRTABLE_TOKEN') && env('AIRTABLE_BASE_ID') ? 'airtable' : 'mock');
 
