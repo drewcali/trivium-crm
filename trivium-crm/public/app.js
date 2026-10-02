@@ -200,7 +200,12 @@ let map, cluster, markers = [];
 function ensureMap() {
   if (map) return;
   map = L.map('map', { preferCanvas: true, zoomControl: true }).setView([40.85, -74.15], 9);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd', attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(map);
+  // Same basemap as AMP (MapTiler streets-light). Falls back to OpenStreetMap if MapTiler refuses the key.
+  const mt = L.tileLayer('https://api.maptiler.com/maps/streets-v2-light/{z}/{x}/{y}.png?key=5qfNISrixuD2Mbd5P3ck',
+    { attribution: '&copy; MapTiler &copy; OpenStreetMap contributors', maxZoom: 20, tileSize: 512, zoomOffset: -1 }).addTo(map);
+  let tileErrors = 0;
+  mt.on('tileerror', () => { if (++tileErrors === 3) { map.removeLayer(mt);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map); } });
   cluster = L.markerClusterGroup({ chunkedLoading: true, iconCreateFunction: (c) => { const n = c.getChildCount(); const d = n < 20 ? 30 : n < 100 ? 36 : n < 500 ? 44 : 52;
     return L.divIcon({ html: `<div class="clu" style="width:${d}px;height:${d}px">${n}</div>`, className: '', iconSize: [d, d] }); }, maxClusterRadius: 48, disableClusteringAtZoom: 16, spiderfyOnMaxZoom: false, showCoverageOnHover: false });
   map.addLayer(cluster);
