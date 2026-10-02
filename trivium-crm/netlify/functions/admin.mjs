@@ -4,7 +4,7 @@ import { accounts, saveAccounts, hashPin, publicProfile } from '../../lib/auth.m
 import { getMeta, incrementalSync, fullSync, PENDING } from '../../lib/snapshot.mjs';
 import { store } from '../../lib/store.mjs';
 import { stats } from '../../lib/airtable.mjs';
-import { SOURCE, CLAUDE, TABLES, env } from '../../lib/config.mjs';
+import { SOURCE, CLAUDE, TABLES, env, onNetlify } from '../../lib/config.mjs';
 import { base } from '../../lib/record.mjs';
 import { parseNotes } from '../../lib/parse.mjs';
 import { SAMPLE_NOTES, scoreParse } from '../../lib/sample-notes.mjs';
@@ -19,8 +19,8 @@ export default handler(async (req, ctx, user) => {
     schemaCheck: await store('cache').get('schema-check'), airtableThisInstance: stats, pending: (await PENDING.list('log:')).length });
 
   if (route === 'users' && req.method === 'GET') {
-    const { base: b } = await base();
-    return json({ accounts: (await accounts()).map(a => ({ ...publicProfile(a), active: a.active !== false })), airtableUsers: b.users });
+    const bb = await base().catch(() => null); // works before the first sync too
+    return json({ accounts: (await accounts()).map(a => ({ ...publicProfile(a), active: a.active !== false })), airtableUsers: bb?.base.users || [] });
   }
   if (route === 'users' && req.method === 'POST') {
     const list = await accounts(); const { id, name, role = 'broker', userRecId, pin, territory } = body;
@@ -40,8 +40,8 @@ export default handler(async (req, ctx, user) => {
 
   if (route === 'sync') {
     if (body.mode === 'full') {
-      if (env('NETLIFY')) { // hand off to the 15-minute background function
-        await fetch(`${env('URL')}/.netlify/functions/sync-background`, { method: 'POST', headers: { 'x-sync-secret': env('SYNC_SECRET', '') } });
+      if (onNetlify()) { // hand off to the 15-minute background function
+        await fetch(`${url.origin}/.netlify/functions/sync-background`, { method: 'POST', headers: { 'x-sync-secret': env('SYNC_SECRET', '') } });
         return json({ started: true, note: 'Full sync running in background (~2–3 min at 13k records). Check status.' });
       }
       return json(await fullSync());
