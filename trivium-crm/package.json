@@ -1,0 +1,23 @@
+{
+  "name": "trivium-crm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Trivium field CRM \u2014 map/list broker interface over Airtable",
+  "scripts": {
+    "dev": "node scripts/dev-server.mjs",
+    "sync": "node -e \"import('./lib/snapshot.mjs').then(m=>m.fullSync(console.log)).then(x=>console.log(x))\"",
+    "test:api": "node scripts/api-test.mjs",
+    "test:perf": "python3 scripts/perf_test.py",
+    "test:offline": "python3 scripts/offline_test.py",
+    "verify:view": "node scripts/verify-view.mjs"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^8.2.0",
+    "leaflet": "^1.9.4",
+    "leaflet.markercluster": "^1.5.3"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.55.0"
+  }
+}
